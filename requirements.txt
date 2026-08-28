@@ -1,2 +1,4 @@
-python-telegram-bot
-yt-dlp
+pyrogram
+tgcrypto
+https://github.com/yt-dlp/yt-dlp/archive/master.zip
+requests
