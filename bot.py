@@ -1,56 +1,92 @@
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
 
-TOKEN = os.getenv("TOKEN")
-CHANNEL = "@hninthanzin77"
+API_ID = 24391484
+API_HASH = "8515c0e7fb4d402b8d0ca5043586aa48"
+BOT_TOKEN = os.environ.get("TOKEN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+# Channel Username ကို ဒီမှာ အတိအကျ ထည့်ပေးထားပါတယ်
+CHANNEL_USERNAME = "@hninthanzin77" 
+
+app = Client("video_downloader_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+async def is_subscribed(client, user_id):
     try:
-        member = await context.bot.get_chat_member(chat_id=CHANNEL, user_id=user.id)
-        if member.status in ['left', 'kicked']:
-            raise Exception("Not member")
-    except:
-        kb = [[InlineKeyboardButton("📢 Channel Join ရန်", url="https://t.me/hninthanzin77")],
-              [InlineKeyboardButton("✅ Join ပြီးပါပြီ", callback_data="check")]]
-        await update.message.reply_text("ကျေးဇူးပြု၍ ပထမဦးစွာ Channel Join ပါ။", reply_markup=InlineKeyboardMarkup(kb))
+        user = await client.get_chat_member(CHANNEL_USERNAME, user_id)
+        if user.status in ["creator", "administrator", "member"]:
+            return True
+    except Exception:
+        return False
+    return False
+
+@app.on_message(filters.command("start"))
+async def start_command(client, message):
+    user_id = message.from_user.id
+    if CHANNEL_USERNAME and not await is_subscribed(client, user_id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 Channel Joinရန်", url=f"https://t.me/{CHANNEL_USERNAME.replace('@', '')}")],
+            [InlineKeyboardButton("🔄 ချက်ချင်းစစ်မည်", callback_data="check_sub")]
+        ])
+        await message.reply(
+            "မင်္ဂလာပါရှင့်! 🌸 ကျေးဇူးပြု၍ ကျွန်ုပ်တို့၏ Channel လေးကို အရင် Join ပေးပါနော်။ ပြီးမှ Bot ကို ဆက်သုံးလို့ရပါမယ်ရှင်။",
+            reply_markup=keyboard
+        )
         return
-    await update.message.reply_text("မင်္ဂလာပါ! ဗီဒီယို Link ပို့ပေးပါ။")
 
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    try:
-        member = await context.bot.get_chat_member(chat_id=CHANNEL, user_id=query.from_user.id)
-        if member.status not in ['left', 'kicked']:
-            await query.message.edit_text("ကျေးဇူးတင်ပါတယ်! Link ပို့ပြီး ဒေါင်းလို့ရပါပြီ။")
-            return
-    except:
-        pass
-    await query.answer("❌ Channel ကို မဝင်ရသေးပါ။", show_alert=True)
+    await message.reply(
+        "မင်္ဂလာပါရှင်! ✨ ကျွန်ုပ်သည် TikTok နှင့် YouTube ဗီဒီယိုများကို ဒေါင်းလုပ်ဆွဲပေးသော Bot ဖြစ်ပါသည်။ ဗီဒီယိုလင့်ခ်ကို ပို့ပေးရုံဖြင့် ဒေါင်းလုပ်ဆွဲပေးပါမည်။"
+    )
 
-async def download(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = update.message.text
-    if not url.startswith("http"): return
-    msg = await update.message.reply_text("⏳ ဒေါင်းလုပ်ဆွဲနေပါပြီ...")
+@app.on_callback_query(filters.regex("check_sub"))
+async def check_subscription(client, callback_query):
+    user_id = callback_query.from_user.id
+    if await is_subscribed(client, user_id):
+        await callback_query.message.edit_text("ကျေးဇူးတင်ပါတယ်ရှင်! 🎉 အခု ဗီဒီယိုလင့်ခ်များကို ပို့ပြီး ဒေါင်းလုပ်ဆွဲနိုင်ပါပြီ။")
+    else:
+        await callback_query.answer("ကျေးဇူးပြု၍ Channel ကို အရင် Join ပေးပါရှင်!", show_alert=True)
+
+@app.on_message(filters.text & ~filters.command(["start"]))
+async def download_video(client, message):
+    user_id = message.from_user.id
+    if CHANNEL_USERNAME and not await is_subscribed(client, user_id):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 Channel Joinရန်", url=f"https://t.me/{CHANNEL_USERNAME.replace('@', '')}")],
+            [InlineKeyboardButton("🔄 ချက်ချင်းစစ်မည်", callback_data="check_sub")]
+        ])
+        await message.reply(
+            "ကျေးဇူးပြု၍ ပထမဦးစွာ ကျွန်ုပ်တို့၏ Channel လေးကို Join ပေးပါရန် မေတ္တာရပ်ခံအပ်ပါတယ်ရှင်။",
+            reply_markup=keyboard
+        )
+        return
+
+    url = message.text.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        await message.reply("ကျေးဇူးပြု၍ မှန်ကန်သော ဗီဒီယိုလင့်ခ် (URL) ကို ပို့ပေးပါရှင်။")
+        return
+
+    m = await message.reply("⏳ ဗီဒီယိုကို ရယူနေပါပြီ၊ ခဏစောင့်ပေးပါရှင်...")
+
+    ydl_opts = {
+        'outtmpl': 'downloads/%(id)s.%(ext)s',
+        'format': 'best',
+    }
+
     try:
-        with yt_dlp.YoutubeDL({'format': 'best', 'outtmpl': 'vid.%(ext)s', 'max_filesize': 50*1024*1024}) as ydl:
+        os.makedirs("downloads", exist_ok=True)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            f = ydl.prepare_filename(info)
-        await update.message.reply_video(video=open(f, 'rb'))
-        os.remove(f)
-        await msg.delete()
+            filename = ydl.prepare_filename(info)
+
+        await m.edit_text("📤 ဗီဒီယိုကို ပို့ဆောင်နေပါပြီ...")
+        await message.reply_video(video=filename)
+        
+        if os.path.exists(filename):
+            os.remove(filename)
+        await m.delete()
+
     except Exception as e:
-        await msg.edit_text(f"❌ အမှား: {e}")
+        await m.edit_text(f"❌ အမှား: {str(e)}")
 
-def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, download))
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+app.run()
