@@ -293,6 +293,16 @@ async def download_media(client, message):
         )
 
 
+import asyncio
+from pyrogram import idle
+
+async def main():
+    await app.start()
+    print("Bot Started Successfully! 🎉")
+    await idle()
+    await app.stop()
+
 if __name__ == "__main__":
-    app.run()
+    asyncio.run(main())
+
 
