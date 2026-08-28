@@ -103,4 +103,7 @@ async def download_video(client, message):
     except Exception as e:
         await m.edit_text(f"❌ အမှား: {str(e)}")
 
+if __name__ == "__main__":
 app.run()
+
+
