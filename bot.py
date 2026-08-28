@@ -1,13 +1,27 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yt_dlp
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully!")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_web_server, daemon=True).start()
 
 API_ID = 24391484
 API_HASH = "8515c0e7fb4d402b8d0ca5043586aa48"
 BOT_TOKEN = os.environ.get("TOKEN")
 
-# Channel Username ကို ဒီမှာ အတိအကျ ထည့်ပေးထားပါတယ်
 CHANNEL_USERNAME = "@hninthanzin77" 
 
 app = Client("video_downloader_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
